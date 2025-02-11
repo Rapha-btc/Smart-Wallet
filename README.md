@@ -1,3 +1,17 @@
+# Pass Key enabled
+
+The flow is now:
+
+User registers passkey -> public key stored in contract
+User enters amount and recipient
+Frontend creates exact message: "transfer:[amount][recipient]"
+User signs this exact message with passkey
+Signature + amount + recipient sent to contract
+Contract recreates exact same message and verifies signature
+If valid, executes transfer
+
+The backend can't modify amount/recipient because it would invalidate the signature. The signature is specifically bound to those exact parameters.
+
 # Smart Wallets for Stacks Blockchain
 
 Smart Wallet is a smart contract that holds assets in the name of one or more users. It is like a single user [executor DAO by Marvin Janssen](https://github.com/MarvinJanssen/executor-dao) and also inspired by [Lisa DAO](https://github.com/lisalab-io/liquid-stacking).
