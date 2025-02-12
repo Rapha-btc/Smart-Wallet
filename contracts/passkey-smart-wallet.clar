@@ -26,29 +26,28 @@
 
 ;; STX transfer with passkey verification
 (define-public (transfer-stx-with-passkey 
-    (amount uint) 
+    (amount int) 
     (recipient principal)
-    (timestamp uint)  ;; Add timestamp parameter
+    (recipient-string (string-ascii 128))  ;; Added recipient as string
+    (timestamp uint)
     (signature (buff 64)))
     (let 
         (
             (current-time (unwrap-panic (get-block-info? time (- block-height u1))))
-            ;; Create the exact message that was signed, now including timestamp
-            (amount-buff (uint-to-buff amount))
-            (recipient-buff (principal-to-buff recipient))
-            (timestamp-buff (uint-to-buff timestamp))
-            (message (concat "transfer:" 
-                           (concat amount-buff 
-                                  (concat recipient-buff timestamp-buff))))
+            ;; Create the exact message that was signed using string concatenation
+            (message (concat (var-get prefix) 
+                    (concat (int-to-ascii amount)
+                           (concat recipient-string 
+                                  (int-to-ascii timestamp)))))
         )
         ;; Check if signature was already used
         (asserts! (not (default-to false (map-get? used-signatures signature))) err-signature-used)
         ;; Check if timestamp is within window
         (asserts! (< (- current-time timestamp) EXPIRY_WINDOW) err-expired)
         ;; Verify signature matches this exact message
-        (asserts! (verify-signature message signature) err-invalid-signature)
+        (asserts! (verify-signature (sha256 (string-to-buff message)) signature) err-invalid-signature)
         ;; Mark signature as used
         (map-set used-signatures signature true)
         ;; If signature is valid, execute the transfer
-        (as-contract (stx-transfer? amount tx-sender recipient))
+        (as-contract (stx-transfer? (to-uint amount) tx-sender recipient))
     ))
