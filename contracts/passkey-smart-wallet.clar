@@ -5,7 +5,7 @@
 (define-constant err-unauthorized (err u401))
 (define-constant err-signature-used (err u402))
 (define-constant err-expired (err u404))
-(define-constant TRANSFER_PREFIX (string-ascii "transfer:"))
+(define-data-var prefix (string-ascii 9) "transfer:")
 (define-constant EXPIRY_WINDOW u300) ;; 5 minutes in seconds
 
 ;; Track used signatures
@@ -37,7 +37,7 @@
             (amount-buff (uint-to-buff amount))
             (recipient-buff (principal-to-buff recipient))
             (timestamp-buff (uint-to-buff timestamp))
-            (message (concat TRANSFER_PREFIX 
+            (message (concat "transfer:" 
                            (concat amount-buff 
                                   (concat recipient-buff timestamp-buff))))
         )

@@ -52,6 +52,11 @@ path = 'contracts/smart-wallet-endpoint.clar'
 clarity_version = 2
 epoch = 2.1
 
+[contracts.passkey-smart-wallet]
+path = 'contracts/passkey-smart-wallet.clar'
+clarity_version = 2
+epoch = 2.1
+
 [contracts.smart-wallet-standard]
 path = 'contracts/smart-wallet-standard.clar'
 clarity_version = 2

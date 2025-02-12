@@ -50,11 +50,6 @@ plan:
     - id: 0
       transactions:
         - emulated-contract-publish:
-            contract-name: sip013-semi-fungible-token-trait
-            emulated-sender: SPDBEG5X8XD50SPM1JJH0E5CTXGDV5NJTKAKKR5V
-            path: ".cache/requirements/SPDBEG5X8XD50SPM1JJH0E5CTXGDV5NJTKAKKR5V.sip013-semi-fungible-token-trait.clar"
-            clarity-version: 1
-        - emulated-contract-publish:
             contract-name: nft-trait
             emulated-sender: SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9
             path: ".cache/requirements/SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait.clar"
@@ -89,6 +84,17 @@ plan:
             emulated-sender: SP3DX3H4FEYZJZ586MFBS25ZW3HZDMEW92260R2PR
             path: ".cache/requirements/SP3DX3H4FEYZJZ586MFBS25ZW3HZDMEW92260R2PR.Wrapped-Bitcoin.clar"
             clarity-version: 1
+      epoch: "2.0"
+    - id: 1
+      transactions:
+        - emulated-contract-publish:
+            contract-name: sip013-semi-fungible-token-trait
+            emulated-sender: SPDBEG5X8XD50SPM1JJH0E5CTXGDV5NJTKAKKR5V
+            path: ".cache/requirements/SPDBEG5X8XD50SPM1JJH0E5CTXGDV5NJTKAKKR5V.sip013-semi-fungible-token-trait.clar"
+            clarity-version: 1
+      epoch: "2.05"
+    - id: 2
+      transactions:
         - emulated-contract-publish:
             contract-name: extension-trait
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
@@ -120,6 +126,11 @@ plan:
             path: contracts/rules/no-rules.clar
             clarity-version: 2
         - emulated-contract-publish:
+            contract-name: passkey-smart-wallet
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: contracts/passkey-smart-wallet.clar
+            clarity-version: 2
+        - emulated-contract-publish:
             contract-name: rule-set-trait
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: contracts/rule-set-trait.clar
@@ -145,7 +156,7 @@ plan:
             path: contracts/smart-wallet-standard.clar
             clarity-version: 2
       epoch: "2.1"
-    - id: 1
+    - id: 3
       transactions:
         - emulated-contract-publish:
             contract-name: nope
@@ -153,7 +164,7 @@ plan:
             path: ".cache/requirements/SP32AEEF6WW5Y0NMJ1S8SBSZDAY8R5J32NBZFPKKZ.nope.clar"
             clarity-version: 2
       epoch: "2.4"
-    - id: 2
+    - id: 4
       transactions:
         - emulated-contract-publish:
             contract-name: og-bitcoin-pizza-leather-edition
@@ -180,7 +191,4 @@ plan:
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: contracts/smart-wallet-standard-endpoint.clar
             clarity-version: 2
-      epoch: "2.5"
-    - id: 3
-      transactions: []
       epoch: "2.5"
