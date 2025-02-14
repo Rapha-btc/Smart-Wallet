@@ -55,27 +55,28 @@
     (recipient principal)
     (timestamp uint)
     (signature (buff 64)))
-    (let 
-        (
-            (current-time (unwrap-panic (get-block-info? time (- block-height u1))))
-            ;; Convert message components to buffers for concatenation
-            (prefix-buff (ascii-to-buff (var-get prefix)))
-            (amount-buff (ascii-to-buff (int-to-ascii amount)))
-            (principal-buff (try! (principal-to-buff recipient)))
-            (timestamp-buff (ascii-to-buff (int-to-ascii timestamp)))
-            ;; Construct message by concatenating buffers
-            (message (concat prefix-buff 
-                           (concat amount-buff
-                                  (concat principal-buff timestamp-buff))))
+    (begin
+        (let 
+            (
+                (current-time (unwrap-panic (get-block-info? time (- block-height u1))))
+                ;; Convert message components to buffers for concatenation
+                (prefix-buff (ascii-to-buff (var-get prefix)))
+                (amount-buff (ascii-to-buff (int-to-ascii amount)))
+                (principal-buff (try! (principal-to-buff recipient)))
+                (timestamp-buff (ascii-to-buff (int-to-ascii timestamp)))
+                ;; Construct message by concatenating buffers
+                (message (concat prefix-buff 
+                               (concat amount-buff
+                                      (concat principal-buff timestamp-buff))))
+            )
+            ;; Do all our checks
+            (asserts! (not (default-to false (map-get? used-signatures signature))) err-signature-used)
+            (asserts! (< (- current-time timestamp) EXPIRY_WINDOW) err-expired)
+            (asserts! (try! (verify-signature (sha256 message) signature)) err-invalid-signature)
+            ;; Mark signature as used
+            (map-set used-signatures signature true)
+            ;; If signature is valid, execute the transfer
+            (as-contract (stx-transfer? (to-uint amount) tx-sender recipient))
+            
         )
-        ;; Check if signature was already used
-        (asserts! (not (default-to false (map-get? used-signatures signature))) err-signature-used)
-        ;; Check if timestamp is within window
-        (asserts! (< (- current-time timestamp) EXPIRY_WINDOW) err-expired)
-        ;; Verify signature matches this exact message
-        (asserts! (try! (verify-signature (sha256 message) signature)) err-invalid-signature)
-        ;; Mark signature as used
-        (map-set used-signatures signature true)
-        ;; If signature is valid, execute the transfer
-        (as-contract (stx-transfer? (to-uint amount) tx-sender recipient))
     ))
