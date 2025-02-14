@@ -1,3 +1,30 @@
+;; Convert ASCII string to buffer, skipping length prefix
+(define-read-only (ascii-to-buff (in (string-ascii 100))) 
+    (default-to 0x (match (to-consensus-buff? in) 
+        buff (slice? buff u5 (len buff)) 
+        none
+    ))
+)
+
+;; Helper to convert principal to string-ascii format 
+(define-read-only (principal-to-string-ascii (recipient principal))
+    (let (
+        (destruct-result (try! (principal-destruct? recipient)))
+        (hash-bytes (get hash-bytes destruct-result))
+        (version (get version destruct-result))
+        (name-opt (get name destruct-result))
+        ;; First try to construct the principal
+        (constructed-principal 
+            (if (is-some name-opt)
+                (principal-construct? version hash-bytes (unwrap-panic name-opt))
+                (principal-construct? version hash-bytes)))
+        ;; Convert into string format after unwrapping
+        (principal (unwrap-panic constructed-principal))
+        (std-principal-str (unwrap-panic (to-consensus-buff? principal)))
+    )
+    (ok (unwrap-panic (slice? std-principal-str u2 (len std-principal-str))))
+))
+
 ;; Passkey-enabled Smart Wallet
 
 (define-data-var wallet-public-key (optional (buff 65)) none)
@@ -28,24 +55,23 @@
 (define-public (transfer-stx-with-passkey 
     (amount int) 
     (recipient principal)
-    (recipient-string (string-ascii 128))  ;; Added recipient as string
     (timestamp uint)
     (signature (buff 64)))
     (let 
         (
             (current-time (unwrap-panic (get-block-info? time (- block-height u1))))
-            ;; Create the exact message that was signed using string concatenation
+            ;; Match the exact frontend message pattern using our new principal-to-string-ascii
             (message (concat (var-get prefix) 
-                    (concat (int-to-ascii amount)
-                           (concat recipient-string 
-                                  (int-to-ascii timestamp)))))
+                           (concat (int-to-ascii amount)
+                                  (concat (try! (principal-to-string-ascii recipient))
+                                         (int-to-ascii timestamp)))))
         )
         ;; Check if signature was already used
         (asserts! (not (default-to false (map-get? used-signatures signature))) err-signature-used)
         ;; Check if timestamp is within window
         (asserts! (< (- current-time timestamp) EXPIRY_WINDOW) err-expired)
         ;; Verify signature matches this exact message
-        (asserts! (verify-signature (sha256 (string-to-buff message)) signature) err-invalid-signature)
+        (asserts! (verify-signature (sha256 (ascii-to-buff message)) signature) err-invalid-signature)
         ;; Mark signature as used
         (map-set used-signatures signature true)
         ;; If signature is valid, execute the transfer
