@@ -6,8 +6,8 @@
     ))
 )
 
-;; Helper to convert principal to string format
-(define-read-only (principal-to-string-ascii (recipient principal))
+;; Helper to convert principal to buffer format directly
+(define-read-only (principal-to-buff (recipient principal))
     (let (
         (destruct-result (try! (principal-destruct? recipient)))
         (hash-bytes (get hash-bytes destruct-result))
@@ -20,9 +20,8 @@
                 (principal-construct? version hash-bytes))))
         ;; Convert to buffer and remove prefix
         (principal-buff (unwrap-panic (to-consensus-buff? constructed)))
-        (principal-str (unwrap-panic (slice? principal-buff u2 (len principal-buff))))
     )
-    (ok principal-str)
+    (ok (unwrap-panic (slice? principal-buff u2 (len principal-buff))))
 ))
 
 ;; Passkey-enabled Smart Wallet
@@ -59,11 +58,10 @@
     (let 
         (
             (current-time (unwrap-panic (get-block-info? time (- block-height u1))))
-            (principal-str (try! (principal-to-string-ascii recipient)))
             ;; Convert message components to buffers for concatenation
             (prefix-buff (ascii-to-buff (var-get prefix)))
             (amount-buff (ascii-to-buff (int-to-ascii amount)))
-            (principal-buff (ascii-to-buff principal-str))
+            (principal-buff (try! (principal-to-buff recipient)))
             (timestamp-buff (ascii-to-buff (int-to-ascii timestamp)))
             ;; Construct message by concatenating buffers
             (message (concat prefix-buff 
