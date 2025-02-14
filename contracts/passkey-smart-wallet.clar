@@ -6,28 +6,27 @@
     ))
 )
 
-;; Helper to convert principal to string-ascii format 
+;; Helper to convert principal to string format
 (define-read-only (principal-to-string-ascii (recipient principal))
     (let (
         (destruct-result (try! (principal-destruct? recipient)))
         (hash-bytes (get hash-bytes destruct-result))
         (version (get version destruct-result))
         (name-opt (get name destruct-result))
-        ;; First try to construct the principal
-        (constructed-principal 
+        ;; Reconstruct the principal
+        (constructed (unwrap-panic 
             (if (is-some name-opt)
                 (principal-construct? version hash-bytes (unwrap-panic name-opt))
-                (principal-construct? version hash-bytes)))
-        ;; Convert into string format after unwrapping
-        (principal (unwrap-panic constructed-principal))
-        (std-principal-str (unwrap-panic (to-consensus-buff? principal)))
+                (principal-construct? version hash-bytes))))
+        ;; Convert to buffer and remove prefix
+        (principal-buff (unwrap-panic (to-consensus-buff? constructed)))
+        (principal-str (unwrap-panic (slice? principal-buff u2 (len principal-buff))))
     )
-    (ok (unwrap-panic (slice? std-principal-str u2 (len std-principal-str))))
+    (ok principal-str)
 ))
 
 ;; Passkey-enabled Smart Wallet
-
-(define-data-var wallet-public-key (optional (buff 65)) none)
+(define-data-var wallet-public-key (optional (buff 33)) none)
 (define-constant err-invalid-signature (err u403))
 (define-constant err-unauthorized (err u401))
 (define-constant err-signature-used (err u402))
@@ -39,7 +38,7 @@
 (define-map used-signatures (buff 64) bool)
 
 ;; Store the public key for the passkey
-(define-public (set-wallet-public-key (public-key (buff 65)))
+(define-public (set-wallet-public-key (public-key (buff 33)))
     (begin
         (asserts! (is-none (var-get wallet-public-key)) err-unauthorized)
         (ok (var-set wallet-public-key (some public-key)))
@@ -47,9 +46,9 @@
 
 ;; Verify WebAuthn signature
 (define-private (verify-signature (message (buff 32)) (signature (buff 64)))
-    (let ((stored-key (unwrap! (var-get wallet-public-key) err-unauthorized)))
+    (ok (let ((stored-key (unwrap-panic (var-get wallet-public-key))))
         (is-eq (secp256k1-verify message signature stored-key) true)
-    ))
+    )))
 
 ;; STX transfer with passkey verification
 (define-public (transfer-stx-with-passkey 
@@ -60,18 +59,23 @@
     (let 
         (
             (current-time (unwrap-panic (get-block-info? time (- block-height u1))))
-            ;; Match the exact frontend message pattern using our new principal-to-string-ascii
-            (message (concat (var-get prefix) 
-                           (concat (int-to-ascii amount)
-                                  (concat (try! (principal-to-string-ascii recipient))
-                                         (int-to-ascii timestamp)))))
+            (principal-str (try! (principal-to-string-ascii recipient)))
+            ;; Convert message components to buffers for concatenation
+            (prefix-buff (ascii-to-buff (var-get prefix)))
+            (amount-buff (ascii-to-buff (int-to-ascii amount)))
+            (principal-buff (ascii-to-buff principal-str))
+            (timestamp-buff (ascii-to-buff (int-to-ascii timestamp)))
+            ;; Construct message by concatenating buffers
+            (message (concat prefix-buff 
+                           (concat amount-buff
+                                  (concat principal-buff timestamp-buff))))
         )
         ;; Check if signature was already used
         (asserts! (not (default-to false (map-get? used-signatures signature))) err-signature-used)
         ;; Check if timestamp is within window
         (asserts! (< (- current-time timestamp) EXPIRY_WINDOW) err-expired)
         ;; Verify signature matches this exact message
-        (asserts! (verify-signature (sha256 (ascii-to-buff message)) signature) err-invalid-signature)
+        (asserts! (try! (verify-signature (sha256 message) signature)) err-invalid-signature)
         ;; Mark signature as used
         (map-set used-signatures signature true)
         ;; If signature is valid, execute the transfer
