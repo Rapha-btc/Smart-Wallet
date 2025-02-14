@@ -8,21 +8,23 @@
 
 ;; Helper to convert principal to buffer format directly
 (define-read-only (principal-to-buff (recipient principal))
-    (let (
-        (destruct-result (try! (principal-destruct? recipient)))
-        (hash-bytes (get hash-bytes destruct-result))
-        (version (get version destruct-result))
-        (name-opt (get name destruct-result))
-        ;; Reconstruct the principal
-        (constructed (unwrap-panic 
-            (if (is-some name-opt)
-                (principal-construct? version hash-bytes (unwrap-panic name-opt))
-                (principal-construct? version hash-bytes))))
-        ;; Convert to buffer and remove prefix
-        (principal-buff (unwrap-panic (to-consensus-buff? constructed)))
-    )
-    (ok (unwrap-panic (slice? principal-buff u2 (len principal-buff))))
-))
+    (match (principal-destruct? recipient)
+        success 
+            (let (
+                (hash-bytes (get hash-bytes success))
+                (version (get version success))
+                (name-opt (get name success))
+                ;; Reconstruct the principal
+                (constructed (unwrap-panic 
+                    (if (is-some name-opt)
+                        (principal-construct? version hash-bytes (unwrap-panic name-opt))
+                        (principal-construct? version hash-bytes))))
+                ;; Convert to buffer and remove prefix
+                (principal-buff (unwrap-panic (to-consensus-buff? constructed)))
+            )
+            (ok (unwrap-panic (slice? principal-buff u2 (len principal-buff)))))
+        error (err err-unauthorized) ;; Convert any principal error to our standard uint error
+    ))
 
 ;; Passkey-enabled Smart Wallet
 (define-data-var wallet-public-key (optional (buff 33)) none)
@@ -56,27 +58,28 @@
     (timestamp uint)
     (signature (buff 64)))
     (begin
+        ;; First handle all our potential response values
         (let 
             (
                 (current-time (unwrap-panic (get-block-info? time (- block-height u1))))
+                (principal-buff (unwrap! (principal-to-buff recipient) err-unauthorized))
                 ;; Convert message components to buffers for concatenation
                 (prefix-buff (ascii-to-buff (var-get prefix)))
                 (amount-buff (ascii-to-buff (int-to-ascii amount)))
-                (principal-buff (try! (principal-to-buff recipient)))
                 (timestamp-buff (ascii-to-buff (int-to-ascii timestamp)))
                 ;; Construct message by concatenating buffers
                 (message (concat prefix-buff 
                                (concat amount-buff
                                       (concat principal-buff timestamp-buff))))
+                (signature-verified (unwrap! (verify-signature (sha256 message) signature) err-invalid-signature))
             )
             ;; Do all our checks
             (asserts! (not (default-to false (map-get? used-signatures signature))) err-signature-used)
             (asserts! (< (- current-time timestamp) EXPIRY_WINDOW) err-expired)
-            (asserts! (try! (verify-signature (sha256 message) signature)) err-invalid-signature)
+            (asserts! signature-verified err-invalid-signature)
             ;; Mark signature as used
             (map-set used-signatures signature true)
             ;; If signature is valid, execute the transfer
             (as-contract (stx-transfer? (to-uint amount) tx-sender recipient))
-            
         )
     ))
