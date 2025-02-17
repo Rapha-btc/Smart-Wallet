@@ -40,34 +40,84 @@
     )))
 
 ;; STX transfer with passkey verification
+;; (define-public (transfer-stx-with-passkey 
+;;     (amount int) 
+;;     (recipient principal)
+;;     (timestamp uint)
+;;     (signature (buff 64)))
+;;     (begin
+;;         ;; First handle all our potential response values
+;;         (let 
+;;             (
+;;                 (current-time (unwrap-panic (get-block-info? time (- block-height u1))))
+;;                 (principal-buff (unwrap! (principal-to-buff recipient) err-unauthorized))
+;;                 ;; Convert message components to buffers for concatenation
+;;                 (prefix-buff (unwrap! (ascii-to-buff (var-get prefix)) err-ascii-to-buff))
+;;                 (amount-buff (unwrap! (ascii-to-buff (int-to-ascii amount)) err-ascii-to-buff))
+;;                 (timestamp-buff (unwrap! (ascii-to-buff (int-to-ascii timestamp)) err-ascii-to-buff))
+;;                 ;; Construct message by concatenating buffers
+;;                 (message (concat prefix-buff 
+;;                                (concat amount-buff
+;;                                       (concat principal-buff timestamp-buff))))
+;;                 ;; (signature-verified (unwrap! (verify-signature (sha256 message) signature) err-invalid-signature))
+;;             )
+;;             ;; lets print all of it to verify it: message, sha256 message, signature, current-time, timestamp, amount, recipient
+;;             (print {message: message,
+;;                     sha256_message: (sha256 message),
+;;                     signature: signature,
+;;                     current_time: current-time,
+;;                     timestamp: timestamp,
+;;                     amount: amount,
+;;                     recipient: recipient,
+;;                     public_key: (unwrap-panic (var-get wallet-public-key)),
+;;                     principal-buff: principal-buff,
+;;                     prefix-buff: prefix-buff,
+;;                     amount-buff: amount-buff,
+;;                     timestamp-buff: timestamp-buff})
+                    
+;;             ;; Do all our checks
+;;             (asserts! (not (default-to false (map-get? used-signatures signature))) err-signature-used)
+;;             ;; (asserts! (< (- current-time timestamp) EXPIRY_WINDOW) err-expired)
+;;             ;; (asserts! signature-verified err-invalid-signature)
+;;             ;; Mark signature as used
+;;             ;; (map-set used-signatures signature true)
+;;             ;; If signature is valid, execute the transfer
+;;             (ok true)
+;;             ;; (as-contract (stx-transfer? (to-uint amount) tx-sender recipient))
+;;         )
+;;     ))
+
 (define-public (transfer-stx-with-passkey 
     (amount int) 
     (recipient principal)
     (timestamp uint)
     (signature (buff 64)))
     (begin
-        ;; First handle all our potential response values
         (let 
             (
                 (current-time (unwrap-panic (get-block-info? time (- block-height u1))))
-                (principal-buff (unwrap! (principal-to-buff recipient) err-unauthorized))
-                ;; Convert message components to buffers for concatenation
-                (prefix-buff (unwrap! (ascii-to-buff (var-get prefix)) err-ascii-to-buff))
-                (amount-buff (unwrap! (ascii-to-buff (int-to-ascii amount)) err-ascii-to-buff))
-                (timestamp-buff (unwrap! (ascii-to-buff (int-to-ascii timestamp)) err-ascii-to-buff))
-                ;; Construct message by concatenating buffers
-                (message (concat prefix-buff 
-                               (concat amount-buff
-                                      (concat principal-buff timestamp-buff))))
-                (signature-verified (unwrap! (verify-signature (sha256 message) signature) err-invalid-signature))
+                ;; Instead of manual message construction, use tuple
+                (message-tuple (tuple 
+                    (prefix (var-get prefix))
+                    (amount amount)
+                    (recipient recipient)
+                    (timestamp timestamp)))
+                (message (to-consensus-buff? message-tuple))
             )
+            (print {
+                message_tuple: message-tuple,
+                message: message,
+                sha256_message: (sha256 (unwrap-panic message)),
+                signature: signature,
+                current_time: current-time,
+                timestamp: timestamp,
+                amount: amount,
+                recipient: recipient,
+                public_key: (unwrap-panic (var-get wallet-public-key))
+            })
+            
             ;; Do all our checks
             (asserts! (not (default-to false (map-get? used-signatures signature))) err-signature-used)
-            (asserts! (< (- current-time timestamp) EXPIRY_WINDOW) err-expired)
-            (asserts! signature-verified err-invalid-signature)
-            ;; Mark signature as used
-            (map-set used-signatures signature true)
-            ;; If signature is valid, execute the transfer
-            (as-contract (stx-transfer? (to-uint amount) tx-sender recipient))
+            (ok true)
         )
     ))
