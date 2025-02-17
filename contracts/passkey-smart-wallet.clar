@@ -1,20 +1,21 @@
-;; Convert ASCII string to buffer, skipping length prefix
+;; Convert ASCII string to buffer, ensuring correct handling of optional types
 (define-read-only (ascii-to-buff (in (string-ascii 100))) 
-    (default-to 0x (match (to-consensus-buff? in) 
-        buff (slice? buff u5 (len buff)) 
-        none
+    (match (to-consensus-buff? in) 
+        some-buff (ok some-buff) ;; Return the buffer if conversion is successful
+        err-ascii-to-buff            ;; Return error if conversion fails
     ))
-)
+
 
 ;; Helper to convert principal to buffer format directly
 (define-read-only (principal-to-buff (recipient principal))
     (match (to-consensus-buff? recipient)
-        some (ok (unwrap-panic (slice? some u1 (len some))))  ;; Skip first byte (0x05 prefix)
-        err-unauthorized)
+            buff (slice? buff u5 (len buff)) 
+            none)
 )
 
 ;; Passkey-enabled Smart Wallet
 (define-data-var wallet-public-key (optional (buff 33)) none)
+(define-constant err-ascii-to-buff (err u400))
 (define-constant err-invalid-signature (err u403))
 (define-constant err-unauthorized (err u401))
 (define-constant err-signature-used (err u402))
@@ -51,9 +52,9 @@
                 (current-time (unwrap-panic (get-block-info? time (- block-height u1))))
                 (principal-buff (unwrap! (principal-to-buff recipient) err-unauthorized))
                 ;; Convert message components to buffers for concatenation
-                (prefix-buff (ascii-to-buff (var-get prefix)))
-                (amount-buff (ascii-to-buff (int-to-ascii amount)))
-                (timestamp-buff (ascii-to-buff (int-to-ascii timestamp)))
+                (prefix-buff (unwrap! (ascii-to-buff (var-get prefix)) err-ascii-to-buff))
+                (amount-buff (unwrap! (ascii-to-buff (int-to-ascii amount)) err-ascii-to-buff))
+                (timestamp-buff (unwrap! (ascii-to-buff (int-to-ascii timestamp)) err-ascii-to-buff))
                 ;; Construct message by concatenating buffers
                 (message (concat prefix-buff 
                                (concat amount-buff
