@@ -8,23 +8,10 @@
 
 ;; Helper to convert principal to buffer format directly
 (define-read-only (principal-to-buff (recipient principal))
-    (match (principal-destruct? recipient)
-        success 
-            (let (
-                (hash-bytes (get hash-bytes success))
-                (version (get version success))
-                (name-opt (get name success))
-                ;; Reconstruct the principal
-                (constructed (unwrap-panic 
-                    (if (is-some name-opt)
-                        (principal-construct? version hash-bytes (unwrap-panic name-opt))
-                        (principal-construct? version hash-bytes))))
-                ;; Convert to buffer and remove prefix
-                (principal-buff (unwrap-panic (to-consensus-buff? constructed)))
-            )
-            (ok (unwrap-panic (slice? principal-buff u2 (len principal-buff)))))
-        error (err err-unauthorized) ;; Convert any principal error to our standard uint error
-    ))
+    (match (to-consensus-buff? recipient)
+        some (ok (unwrap-panic (slice? some u1 (len some))))  ;; Skip first byte (0x05 prefix)
+        err-unauthorized)
+)
 
 ;; Passkey-enabled Smart Wallet
 (define-data-var wallet-public-key (optional (buff 33)) none)
