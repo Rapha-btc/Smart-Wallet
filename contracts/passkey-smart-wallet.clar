@@ -20,7 +20,7 @@
 (define-constant err-unauthorized (err u401))
 (define-constant err-signature-used (err u402))
 (define-constant err-expired (err u404))
-(define-data-var prefix (string-ascii 9) "transfer:")
+(define-data-var prefix (string-ascii 8) "transfer")
 (define-constant EXPIRY_WINDOW u300) ;; 5 minutes in seconds
 
 ;; Track used signatures
@@ -87,8 +87,24 @@
 ;;         )
 ;;     ))
 
+(define-read-only (get-buff) 
+  (unwrap-panic (to-consensus-buff? {prefix: "transfer", amount: u123, recipient: 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9, timestamp: u9876}))) 
+  ;; equivalent in js to 
+  ;; const cv = tupleCV({
+  ;; prefix: stringAsciiCV("transfer"),
+  ;; amount: uintCV(123),
+  ;; recipient: principalCV("SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9"),
+  ;; timestamp: uintCV(9876),
+  ;; })
+  ;; bytesToHex(serializeCV(cv))
+
+(define-read-only (get-sha256) 
+  (sha256 (unwrap-panic (to-consensus-buff? {prefix: "transfer", amount: u123, recipient: 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9, timestamp: u9876}))))
+;; equivalent in js to
+;; bytesToHex(sha256(serializeCV(cv)))
+
 (define-public (transfer-stx-with-passkey 
-    (amount int) 
+    (amount uint) 
     (recipient principal)
     (timestamp uint)
     (signature (buff 64)))
@@ -96,20 +112,18 @@
         (let 
             (
                 (current-time (unwrap-panic (get-block-info? time (- block-height u1))))
-                ;; Instead of manual message construction, use tuple
-                (message-tuple (tuple 
-                    (prefix (var-get prefix))
-                    (amount amount)
-                    (recipient recipient)
-                    (timestamp timestamp)))
-                (message (to-consensus-buff? message-tuple))
+                (message (to-consensus-buff? {
+                    prefix: (var-get prefix),
+                    amount: amount,
+                    recipient: recipient,
+                    timestamp: timestamp
+                }))
             )
             (print {
-                message_tuple: message-tuple,
-                message: message,
+                ;; message: message,
                 sha256_message: (sha256 (unwrap-panic message)),
                 signature: signature,
-                current_time: current-time,
+                ;; current_time: current-time,
                 timestamp: timestamp,
                 amount: amount,
                 recipient: recipient,
@@ -121,3 +135,38 @@
             (ok true)
         )
     ))
+
+;; (define-public (transfer-stx-with-passkey 
+;;     (amount int) 
+;;     (recipient principal)
+;;     (timestamp uint)
+;;     (signature (buff 64)))
+;;     (begin
+;;         (let 
+;;             (
+;;                 (current-time (unwrap-panic (get-block-info? time (- block-height u1))))
+;;                 ;; Instead of manual message construction, use tuple
+;;                 (message-tuple (tuple 
+;;                     (prefix (var-get prefix))
+;;                     (amount amount)
+;;                     (recipient recipient)
+;;                     (timestamp timestamp)))
+;;                 (message (to-consensus-buff? message-tuple))
+;;             )
+;;             (print {
+;;                 message_tuple: message-tuple,
+;;                 message: message,
+;;                 sha256_message: (sha256 (unwrap-panic message)),
+;;                 signature: signature,
+;;                 current_time: current-time,
+;;                 timestamp: timestamp,
+;;                 amount: amount,
+;;                 recipient: recipient,
+;;                 public_key: (unwrap-panic (var-get wallet-public-key))
+;;             })
+            
+;;             ;; Do all our checks
+;;             (asserts! (not (default-to false (map-get? used-signatures signature))) err-signature-used)
+;;             (ok true)
+;;         )
+;;     ))
